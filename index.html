@@ -1,0 +1,670 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Play, 
+  Check, 
+  ChevronRight, 
+  Instagram, 
+  Video, 
+  Lightbulb, 
+  MessageCircle, 
+  X, 
+  Send, 
+  Sparkles, 
+  Loader2, 
+  Star,
+  RotateCcw // ✅ CORREÇÃO 1: O ícone está importado corretamente
+} from 'lucide-react';
+
+// --- CONFIGURAÇÃO DA API GEMINI ---
+// ✅ CORREÇÃO 2: Prepara para ler a chave da Vercel ou usa vazio para não quebrar
+const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || ""; 
+
+// --- DADOS DO APLICATIVO ---
+const PORTAL_DATA = {
+  0: {
+    type: "intro",
+    title: "👋 Bem-vindo à sua Recuperação",
+    intro: "Você não está sozinho. Este portal contém o método exato para te levar da cirurgia até voltar a andar com segurança.",
+    instructions: "Toque na fase correspondente abaixo para liberar seus exercícios diários.",
+    videoSource: "/videos/boas_vindas.mp4", 
+    phases_summary: [
+      { id: 1, icon: "🛡️", title: "Fase 1: Proteção", sub: "Semana 0-4 • Controle e Repouso" },
+      { id: 2, icon: "👣", title: "Fase 2: Mobilidade", sub: "Liberado pé no chão (Carga Parcial)" },
+      { id: 3, icon: "💪", title: "Fase 3: Força Total", sub: "Liberado peso total (Largar Muletas)" }
+    ],
+    disclaimer: {
+      title: "Termos de Uso e Responsabilidade",
+      text: "Este aplicativo serve como guia de suporte. Ele não substitui o julgamento clínico do seu médico ou fisioterapeuta. Em caso de dúvidas ou dor persistente, suspenda os exercícios.",
+      crefito: "Fisioterapeuta: Dr. João Paulo Cardozo"
+    }
+  },
+  1: {
+    title: "FASE 1: 🛡️ Proteção",
+    subtitle: "Semanas 0 a 4",
+    intro: "Foco absoluto em desinchar e proteger a cirurgia. O objetivo é manter o sangue circulando sem forçar o tornozelo.",
+    introVideoSource: "/videos/fase1_intro.mp4",
+    warning: {
+      title: "🚨 Sinais de Alerta (Triagem)",
+      intro: "Fique atento a estes sinais que NÃO são normais:",
+      items: [
+        { label: "Risco de Trombose", text: "Dor aguda na panturrilha, inchaço repentino e rigidez." },
+        { label: "Sinais de Infecção", text: "Secreção (pus), vermelhidão espalhada ou febre." },
+        { label: "Circulação", text: "Dedos muito pálidos ou frios." }
+      ],
+      footer: "Se notar algum destes, procure seu médico."
+    },
+    regraOuro: "Regra de Ouro: O desconforto leve é normal, mas 'pontadas' agudas na cirurgia não. Respeite o limite da dor.",
+    achievements: [
+      "Ferida operatória está seca e limpa",
+      "Consigo dormir sem dor intensa",
+      "Inchaço diminui pela manhã",
+      "Consigo mover os dedos livremente"
+    ],
+    sections: [
+      { 
+        name: "1. Bombeamento Isométrico", 
+        desc: "Faça força na batata da perna como se quisesse pisar no acelerador, mas SEM deixar o pé mexer. Sinta o músculo endurecer, segure 3s e relaxe.", 
+        dosage: "3x 10 reps",
+        videoSource: "/videos/fase1_ex1.mp4",
+        whyDoIt: "Sua 'bomba' natural. Empurra o sangue de volta para o coração, diminuindo inchaço e prevenindo trombose."
+      },
+      { 
+        name: "2. O 'Pianista' (Mobilidade)", 
+        desc: "Com a perna esticada, tente abrir bem os dedos dos pés e depois fechar com força.", 
+        dosage: "3x 15 reps",
+        videoSource: "/videos/fase1_ex2.mp4",
+        whyDoIt: "Evita que os tendões colem na cicatriz e ajuda a reduzir o edema."
+      },
+      { 
+        name: "3. Ativação de Glúteo", 
+        desc: "Deitado, aperte uma nádega contra a outra com força. Segure 5s e relaxe.", 
+        dosage: "3x 15 reps",
+        videoSource: "/videos/fase1_ex3.mp4",
+        whyDoIt: "Mesmo deitado, seu glúteo precisa trabalhar para não atrofiar e manter estabilidade."
+      },
+      { 
+        name: "4. Elevação de Perna", 
+        desc: "Deitado, trave o joelho e levante a perna esticada.", 
+        dosage: "3x 10 reps",
+        videoSource: "/videos/fase1_ex4.mp4",
+        whyDoIt: "Fortalece a coxa (quadríceps) sem colocar carga no tornozelo."
+      },
+      { 
+        name: "5. Pé no Chão (Adaptação)", 
+        desc: "Sentado, apoie o pé no chão sem peso. Se ficar vermelho/latejar é normal.", 
+        dosage: "2 min -> 15 min",
+        videoSource: "/videos/fase1_ex5.mp4",
+        whyDoIt: "Prepara o sistema vascular para a gravidade antes de começar a andar."
+      }
+    ]
+  },
+  2: {
+    title: "FASE 2: 👣 Mobilidade",
+    subtitle: "Carga Parcial Liberada",
+    intro: "Vamos recuperar o movimento de 90º do tornozelo e ensinar seu pé a receber peso novamente.",
+    introVideoSource: "/videos/fase2_intro.mp4",
+    warning: { type: "info", title: "⚠️ Requisito de Segurança", text: "Só realize o exercício 'Balança' se o médico já liberou colocar Carga Parcial." },
+    achievements: [
+      "Pé atinge 90 graus (ângulo reto)",
+      "Piso com carga parcial sem dor aguda",
+      "Uso tênis confortável",
+      "Iniciei o desmame das muletas"
+    ],
+    sections: [
+      { 
+        name: "1. Alongamento com Toalha", 
+        desc: "Puxe a ponta do pé com uma toalha até sentir 'repuxar' a batata da perna.", 
+        dosage: "3x 30 seg",
+        videoSource: "/videos/fase2_ex1.mp4",
+        whyDoIt: "Recupera a flexibilidade da panturrilha para permitir o passo correto."
+      },
+      { 
+        name: "2. O Acelerador (Sem Carga)", 
+        desc: "Leve o pé o máximo para cima e para baixo. Tente ganhar 1mm a cada repetição.", 
+        dosage: "3x 15 reps",
+        videoSource: "/videos/fase2_ex2.mp4",
+        whyDoIt: "Solta a rigidez articular sem estressar os ligamentos laterais."
+      },
+      { 
+        name: "3. O Acelerador (Com Elástico)", 
+        desc: "Empurre para baixo contra o elástico e segure a volta lentamente.", 
+        dosage: "3x 15 reps",
+        videoSource: "/videos/fase2_ex3.mp4",
+        whyDoIt: "Fortalecimento excêntrico: essencial para recuperar a força de absorção de impacto."
+      },
+      { 
+        name: "4. A Balança (Descarga)", 
+        desc: "Em pé com muletas, transfira levemente o peso para o pé operado.", 
+        dosage: "3x 1 min",
+        videoSource: "/videos/fase2_ex4.mp4",
+        whyDoIt: "Reeduca o cérebro a aceitar carga no membro operado (propriocepção)."
+      }
+    ]
+  },
+  3: {
+    title: "FASE 3: 💪 Força Total",
+    subtitle: "Retorno à Vida Normal",
+    intro: "Foco em fortalecer a panturrilha e treinar o equilíbrio para evitar novas entorses.",
+    introVideoSource: "/videos/fase3_intro.mp4",
+    warning: { type: "stop", title: "⛔ Requisito Obrigatório", text: "Esta fase exige liberação médica para CARGA TOTAL (pisar sem muletas)." },
+    achievements: [
+      "Subo/desço degraus sem apoio",
+      "Fico na ponta dos pés (bipodal)",
+      "Equilíbrio num pé só (10s)",
+      "Caminho sem mancar"
+    ],
+    sections: [
+      { 
+        name: "1. Joelho na Parede", 
+        desc: "Pé a 10cm da parede, toque o joelho na parede sem tirar o calcanhar do chão.", 
+        dosage: "3x 12 reps",
+        videoSource: "/videos/fase3_ex1.mp4",
+        whyDoIt: "Aumenta a dorsiflexão, fundamental para descer escadas e agachar."
+      },
+      { 
+        name: "2. Elevação de Calcanhar", 
+        desc: "Suba na ponta dos pés. Evolua para um pé só quando estiver forte.", 
+        dosage: "3x 15 reps",
+        videoSource: "/videos/fase3_ex2.mp4",
+        whyDoIt: "Fortalece o 'motor' da caminhada. Evita que você manque por fraqueza."
+      },
+      { 
+        name: "3. Mini-Agachamento", 
+        desc: "Apoie na cadeira e dobre levemente os joelhos.", 
+        dosage: "3x 10 reps",
+        videoSource: "/videos/fase3_ex3.mp4",
+        whyDoIt: "Fortalecimento funcional de quadríceps para sentar e levantar."
+      },
+      { 
+        name: "4. O Garça (Equilíbrio)", 
+        desc: "Equilibre-se na perna operada. Tente soltar a mão aos poucos.", 
+        dosage: "3x 30 seg",
+        videoSource: "/videos/fase3_ex4.mp4",
+        whyDoIt: "Treino de equilíbrio para prevenir novas torções no futuro."
+      },
+      { 
+        name: "5. Passo sobre Obstáculo", 
+        desc: "Passe a perna boa por cima de um objeto enquanto equilibra na operada.", 
+        dosage: "3x 10 voltas",
+        videoSource: "/videos/fase3_ex5.mp4",
+        whyDoIt: "Desafio avançado de estabilidade dinâmica."
+      }
+    ]
+  }
+};
+
+// --- COMPONENTES AUXILIARES ---
+
+// Novo Componente Universal de Vídeo (Aceita YouTube e Arquivos Locais)
+const UniversalVideoPlayer = ({ source, title, isCompact = false }) => {
+  // Verifica se é um placeholder (não configurado)
+  const isPlaceholder = !source || source.startsWith('VIDEO_ID');
+  
+  // Verifica se é um arquivo local (tem extensão ou caminho)
+  const isLocalFile = source && (source.includes('/') || source.includes('.') || source.startsWith('http'));
+
+  if (isPlaceholder) return (
+    <div className={`w-full bg-slate-100 rounded-xl flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 ${isCompact ? 'aspect-[21/9]' : 'aspect-video'}`}>
+      <Video size={isCompact ? 24 : 48} className="mx-auto mb-2 opacity-30" />
+      <p className="text-[10px] font-bold uppercase tracking-wider">Vídeo Demonstrativo</p>
+    </div>
+  );
+
+  // Renderiza Player Nativo (HTML5) para arquivos locais
+  if (isLocalFile) {
+    return (
+      <div className={`relative w-full rounded-xl overflow-hidden shadow-lg bg-black ${isCompact ? 'pb-[40%]' : 'pb-[56.25%]'}`}>
+        <video 
+          className="absolute top-0 left-0 w-full h-full object-cover"
+          controls
+          playsInline
+          src={source}
+          title={title}
+        >
+          Seu navegador não suporta este vídeo.
+        </video>
+      </div>
+    );
+  }
+
+  // Renderiza YouTube para IDs
+  return (
+    <div className={`relative w-full rounded-xl overflow-hidden shadow-lg bg-black ${isCompact ? 'pb-[40%]' : 'pb-[56.25%]'}`}>
+      <iframe
+        className="absolute top-0 left-0 w-full h-full"
+        src={`https://www.youtube.com/embed/${source}?rel=0&modestbranding=1`}
+        title={title}
+        frameBorder="0"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+      ></iframe>
+    </div>
+  );
+};
+
+// ✅ CORREÇÃO 3: Gerador de Respostas com IA (Robustez e Tratamento de Erro)
+async function fetchGeminiResponse(userQuery) {
+  if (!apiKey) {
+    console.warn("⚠️ API Key não configurada.");
+    return "O sistema de IA está em modo de demonstração. Configure a chave do Gemini na Vercel para ativar.";
+  }
+
+  try {
+    const systemPrompt = `
+      Você é o assistente virtual do Dr. João Paulo, especialista em fisioterapia de tornozelo.
+      Use os dados abaixo para responder:
+      ${JSON.stringify(PORTAL_DATA)}
+      Seja curto, motivador e use emojis. Nunca dê diagnósticos médicos graves.
+      Responda como se estivesse conversando no WhatsApp.
+    `;
+    
+    // Usando modelo estável (1.5 Flash)
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: userQuery }] }],
+          systemInstruction: { parts: [{ text: systemPrompt }] }
+        }),
+      }
+    );
+
+    if (!response.ok) throw new Error("Erro na resposta da API");
+
+    const data = await response.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || "Desculpe, tente novamente.";
+  } catch (error) {
+    console.error("Erro API:", error);
+    return "Erro de conexão. Verifique sua internet ou tente mais tarde.";
+  }
+}
+
+// Componente de Chat
+const AIChatAssistant = ({ isOpen, onClose }) => {
+  const [messages, setMessages] = useState([
+    { role: 'assistant', text: 'Olá! Sou a IA do Dr. João Paulo. Tem alguma dúvida sobre os exercícios ou sua dor?' }
+  ]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const scrollRef = useRef(null);
+
+  useEffect(() => { scrollRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+  const handleSend = async () => {
+    if (!input.trim()) return;
+    const text = input;
+    setInput('');
+    setMessages(prev => [...prev, { role: 'user', text }]);
+    setIsLoading(true);
+    const reply = await fetchGeminiResponse(text);
+    setMessages(prev => [...prev, { role: 'assistant', text: reply }]);
+    setIsLoading(false);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center pointer-events-none p-4 pb-safe bg-black/20 backdrop-blur-sm">
+      <div className="bg-white w-full max-w-md h-[500px] max-h-[80vh] rounded-2xl shadow-2xl border border-slate-200 flex flex-col pointer-events-auto animate-in slide-in-from-bottom-10 fade-in duration-300">
+        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-blue-600 rounded-t-2xl text-white">
+          <div className="flex items-center gap-2">
+            <Sparkles size={18} />
+            <h3 className="font-bold text-sm">Suporte Inteligente</h3>
+          </div>
+          <button onClick={onClose}><X size={18} /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
+          {messages.map((m, i) => (
+            <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[85%] p-3 rounded-2xl text-xs leading-relaxed ${m.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-white text-slate-700 shadow-sm border border-slate-200 rounded-bl-none'}`}>
+                {m.text}
+              </div>
+            </div>
+          ))}
+          {isLoading && <Loader2 className="animate-spin text-blue-500 mx-auto" size={20} />}
+          <div ref={scrollRef} />
+        </div>
+        <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="p-3 bg-white border-t border-slate-100 rounded-b-2xl flex gap-2">
+          <input value={input} onChange={e => setInput(e.target.value)} placeholder="Digite sua dúvida..." className="flex-1 bg-slate-100 rounded-xl px-4 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+          <button type="submit" disabled={isLoading} className="bg-blue-600 text-white p-3 rounded-xl"><Send size={18} /></button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// Cartão de Motivação
+const MotivationCard = () => {
+  const [msg, setMsg] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const getMsg = async () => {
+    setLoading(true);
+    const res = await fetchGeminiResponse("Crie uma frase curta e muito motivadora para alguém recuperando de cirurgia no tornozelo. Use emojis.");
+    setMsg(res);
+    setLoading(false);
+  };
+
+  return (
+    <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-3xl p-6 text-white shadow-lg shadow-indigo-200 relative overflow-hidden mb-6">
+      <div className="relative z-10">
+        <div className="flex items-center gap-2 mb-2 opacity-80">
+          <Sparkles size={16} />
+          <span className="text-[10px] font-black uppercase tracking-widest">Dose Diária de Ânimo</span>
+        </div>
+        {msg ? (
+          <p className="text-lg font-bold leading-tight mb-4 animate-in fade-in">"{msg}"</p>
+        ) : (
+          <p className="text-sm font-medium mb-4 opacity-90">Precisa de um empurrãozinho hoje?</p>
+        )}
+        <button onClick={getMsg} disabled={loading} className="bg-white/20 hover:bg-white/30 backdrop-blur-md px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2">
+          {loading ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+          {msg ? "Nova Mensagem" : "Receber Motivação"}
+        </button>
+      </div>
+      <Sparkles className="absolute -bottom-4 -right-4 text-white opacity-10" size={120} />
+    </div>
+  );
+};
+
+// --- COMPONENTE DE EXERCÍCIO ISOLADO ---
+const ExerciseCard = ({ exercise, index }) => {
+  const [showVideo, setShowVideo] = useState(false);
+
+  return (
+    <div className="bg-white rounded-3xl overflow-hidden border border-slate-100 shadow-sm hover:border-blue-200 transition-all">
+      <div className="p-6">
+        <div className="flex justify-between items-start mb-3 gap-4">
+          <div className="flex gap-3">
+            <span className="text-slate-300 font-black text-sm">0{index + 1}</span>
+            <h4 className="font-black text-slate-800 text-sm italic">{exercise.name}</h4>
+          </div>
+          <span className="text-[9px] font-black bg-slate-100 text-slate-600 px-2 py-1 rounded-lg uppercase whitespace-nowrap shrink-0">{exercise.dosage}</span>
+        </div>
+        <p className="text-slate-500 text-xs leading-relaxed mb-4 pl-7 border-l-2 border-slate-100">{exercise.desc}</p>
+        
+        {/* Card "Por que Fazer" */}
+        <div className="ml-7 bg-amber-50 p-3 rounded-xl border border-amber-100 mb-4 flex gap-2">
+          <Lightbulb size={16} className="text-amber-500 shrink-0 mt-0.5" />
+          <p className="text-[11px] text-amber-800 leading-tight"><strong>Para que serve:</strong> {exercise.whyDoIt}</p>
+        </div>
+
+        <button 
+          onClick={() => setShowVideo(!showVideo)}
+          className="w-full flex items-center justify-center gap-2 bg-slate-900 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-blue-600 transition-colors"
+        >
+          {showVideo ? <><X size={14}/> Fechar Vídeo</> : <><Play size={14} fill="currentColor"/> Ver Execução</>}
+        </button>
+      </div>
+      
+      {/* Player de Vídeo Expandível */}
+      {showVideo && (
+        <div className="bg-black p-2 animate-in slide-in-from-top-2">
+          <UniversalVideoPlayer source={exercise.videoSource} title={exercise.name} />
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- COMPONENTE PRINCIPAL ---
+
+export default function App() {
+  const [activePhase, setActivePhase] = useState(0);
+  const [userState, setUserState] = useState({});
+  const [chatOpen, setChatOpen] = useState(false);
+  
+  // Persistência simples
+  useEffect(() => {
+    const saved = localStorage.getItem('jp_portal_state');
+    if (saved) {
+        try {
+            setUserState(JSON.parse(saved) || {});
+        } catch (e) {
+            console.error("Erro ao carregar estado", e);
+            setUserState({});
+        }
+    }
+  }, []);
+
+  const toggleAch = (key) => {
+    const newState = { ...userState, [key]: !userState[key] };
+    setUserState(newState);
+    localStorage.setItem('jp_portal_state', JSON.stringify(newState));
+  };
+
+  // Cálculo de progresso
+  const calculateProgress = () => {
+    let total = 0, done = 0;
+    Object.keys(PORTAL_DATA).forEach(key => {
+      if (key !== "0" && PORTAL_DATA[key].achievements) {
+        PORTAL_DATA[key].achievements.forEach((_, i) => {
+          total++;
+          if (userState[`f${key}_c${i}`]) done++;
+        });
+      }
+    });
+    return total === 0 ? 0 : Math.round((done / total) * 100);
+  };
+
+  const progress = calculateProgress();
+  const currentData = PORTAL_DATA[activePhase];
+
+  return (
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-36">
+      {/* HEADER */}
+      <header className="bg-white/90 backdrop-blur-xl border-b border-slate-200 sticky top-0 z-40">
+        <div className="max-w-2xl mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setActivePhase(0)}>
+            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg overflow-hidden relative border border-slate-100 group-hover:scale-105 transition-transform">
+              <span className="text-white font-black italic text-sm">JP</span>
+            </div>
+            <div>
+              <span className="block text-[9px] font-black tracking-widest text-slate-400 uppercase">Fisioterapia</span>
+              <span className="block text-xs font-black tracking-tighter text-slate-800 leading-none group-hover:text-blue-600 transition-colors">REABILITAÇÃO INTELIGENTE</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+             {/* ✅ CORREÇÃO 4: Corrigido de 'sim:block' para 'sm:block' */}
+             <div className="text-right hidden sm:block">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Progresso</p>
+                <p className="text-xs font-black text-blue-600">{progress}%</p>
+            </div>
+            <div className="w-10 h-10 relative flex items-center justify-center">
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                <path className="text-slate-100" strokeWidth="3" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                <path className="text-blue-600 transition-all duration-1000" strokeWidth="3" strokeDasharray={`${progress}, 100`} strokeLinecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+              </svg>
+            </div>
+             <a href="https://www.instagram.com/joaopfisioterapeuta/" target="_blank" rel="noreferrer" className="text-slate-400 hover:text-pink-600 transition-colors">
+               <Instagram size={20} />
+             </a>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-2xl mx-auto px-6 py-6">
+        {/* NAVEGAÇÃO */}
+        <nav className="flex gap-2 p-1 bg-slate-200 rounded-2xl mb-8 overflow-x-auto no-scrollbar shadow-inner sticky top-20 z-30">
+          {[0, 1, 2, 3].map(id => (
+            <button 
+              key={id}
+              onClick={() => setActivePhase(id)}
+              className={`flex-1 py-3 px-4 rounded-xl text-[10px] font-black transition-all whitespace-nowrap ${activePhase === id ? 'bg-blue-600 text-white shadow-md scale-105' : 'text-slate-500 hover:bg-white/50'}`}
+            >
+              {id === 0 ? 'INÍCIO' : `FASE ${id}`}
+            </button>
+          ))}
+        </nav>
+
+        {/* CONTEÚDO */}
+        <div className="animate-in fade-in duration-500">
+          {activePhase === 0 ? (
+            // TELA INICIAL
+            <div className="space-y-6">
+              <MotivationCard />
+              
+              <div className="bg-white rounded-[2rem] p-8 shadow-xl shadow-slate-200/50 border border-slate-100 relative overflow-hidden">
+                 <h2 className="text-3xl font-black mb-4 leading-tight tracking-tight text-slate-800">{currentData.title}</h2>
+                 <p className="text-slate-500 text-sm leading-relaxed mb-6 font-medium">{currentData.intro}</p>
+                 
+                 <div className="mb-6 rounded-2xl overflow-hidden shadow-lg border border-slate-100">
+                    <UniversalVideoPlayer source={currentData.videoSource} title="Boas Vindas" isCompact />
+                 </div>
+
+                 <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-400 mb-1">Instruções:</p>
+                    <p className="text-xs text-blue-900 font-bold">{currentData.instructions}</p>
+                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4">
+                {currentData.phases_summary.map(phase => (
+                  <div key={phase.id} onClick={() => setActivePhase(phase.id)} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.03)] cursor-pointer hover:border-blue-300 hover:shadow-lg hover:-translate-y-1 transition-all flex items-center gap-4 group active:scale-95">
+                    <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl group-hover:scale-110 transition-transform shadow-sm">{phase.icon}</div>
+                    <div>
+                      <h3 className="font-bold text-slate-800 text-lg">{phase.title}</h3>
+                      <p className="text-xs text-slate-500 font-medium">{phase.sub}</p>
+                    </div>
+                    <div className="ml-auto text-blue-200 group-hover:text-blue-600 transition-colors"><ChevronRight /></div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-8 p-6 bg-slate-100 rounded-3xl border border-slate-200 text-center">
+                 <div className="w-10 h-10 bg-slate-200 rounded-full flex items-center justify-center text-lg mx-auto mb-3">⚖️</div>
+                 <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-2">{currentData.disclaimer.title}</h4>
+                 <p className="text-[11px] text-slate-500 leading-relaxed mb-4 max-w-md mx-auto">{currentData.disclaimer.text}</p>
+                 <div className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-full border border-slate-200 shadow-sm">
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                    <p className="text-[10px] font-bold text-slate-700 uppercase tracking-tight">{currentData.disclaimer.crefito}</p>
+                 </div>
+              </div>
+            </div>
+          ) : (
+            // TELAS DE FASE (1, 2, 3)
+            <div>
+              <div className="mb-8">
+                <span className="inline-block px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold uppercase mb-2 tracking-wider shadow-sm">{currentData.subtitle}</span>
+                <h2 className="text-3xl font-black text-slate-900 leading-tight mb-3 tracking-tight">{currentData.title}</h2>
+                <p className="text-slate-600 text-sm leading-relaxed font-medium mb-6">{currentData.intro}</p>
+                
+                {/* VÍDEO DA FASE */}
+                <div className="mb-6 rounded-2xl overflow-hidden shadow-md">
+                   <UniversalVideoPlayer source={currentData.introVideoSource} title={currentData.title} />
+                </div>
+
+                {currentData.regraOuro && (
+                  <div className="mb-4 p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r-xl shadow-sm">
+                    <p className="text-xs text-blue-900 font-bold leading-relaxed">💎 {currentData.regraOuro}</p>
+                  </div>
+                )}
+
+                {/* AVISOS E ALERTAS */}
+                {currentData.warning && (
+                   <div className={`mt-6 rounded-r-2xl p-5 shadow-sm border-l-4 ${currentData.warning.type === 'stop' ? 'bg-red-50 border-red-500' : 'bg-amber-50 border-amber-400'}`}>
+                      {currentData.warning.items ? (
+                        <>
+                          <div className="flex items-center gap-2 mb-3">
+                             <span className="text-xl">🚨</span>
+                             <h4 className="text-xs font-black text-red-800 uppercase tracking-wider">{currentData.warning.title}</h4>
+                          </div>
+                          <p className="text-xs text-red-700 mb-4 opacity-80">{currentData.warning.intro}</p>
+                          <div className="space-y-3">
+                            {currentData.warning.items.map((item, i) => (
+                              <div key={i} className="bg-white/60 p-3 rounded-xl border border-red-100">
+                                <p className="text-xs font-bold text-red-900 mb-1">{item.label}</p>
+                                <p className="text-[11px] text-red-700 leading-tight">{item.text}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex gap-3 items-center">
+                          <div className="text-2xl">{currentData.warning.type === 'stop' ? '⛔' : '⚠️'}</div>
+                          <div>
+                            <p className={`text-xs font-bold uppercase tracking-wider ${currentData.warning.type === 'stop' ? 'text-red-800' : 'text-amber-800'}`}>{currentData.warning.title}</p>
+                            <p className={`text-xs mt-1 ${currentData.warning.type === 'stop' ? 'text-red-600' : 'text-amber-700'}`}>{currentData.warning.text}</p>
+                          </div>
+                        </div>
+                      )}
+                   </div>
+                )}
+              </div>
+
+              {/* CHECKLIST */}
+              <div className="mb-10 bg-white rounded-3xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-slate-100">
+                <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-50">
+                   <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Checklist de Evolução</h3>
+                   {/* Contador de progresso da fase */}
+                   <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+                     {currentData.achievements.filter((_, i) => userState[`f${activePhase}_c${i}`]).length}/{currentData.achievements.length}
+                   </span>
+                </div>
+                <div className="space-y-3">
+                   {currentData.achievements.map((ach, i) => {
+                     const key = `f${activePhase}_c${i}`;
+                     const isChecked = !!userState[key];
+                     return (
+                       <div key={i} onClick={() => toggleAch(key)} className="flex items-start gap-3 p-3 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors border-l-2 border-transparent hover:border-blue-500">
+                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${isChecked ? 'bg-blue-600 border-blue-600' : 'border-slate-300'}`}>
+                             {isChecked && <Check size={12} className="text-white" />}
+                          </div>
+                          <label className={`text-xs font-bold select-none leading-relaxed ${isChecked ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{ach}</label>
+                       </div>
+                     );
+                   })}
+                </div>
+              </div>
+
+              {/* LISTA DE EXERCÍCIOS */}
+              <div className="space-y-6">
+                 <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-2 mb-4">Exercícios da Fase</h3>
+                 {currentData.sections.map((ex, i) => (
+                    <ExerciseCard key={i} exercise={ex} index={i} />
+                 ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* BARRA INFERIOR FLUTUANTE */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200 p-4 z-50 safe-area-bottom shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
+        <div className="max-w-2xl mx-auto flex items-center justify-between gap-4">
+           {/* Botão de Chat IA */}
+           <div className="flex items-center gap-3 shrink-0" onClick={() => setChatOpen(true)}>
+              <div className="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center relative cursor-pointer hover:scale-110 transition-transform">
+                 <MessageCircle size={20} />
+                 <span className="absolute top-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
+              </div>
+              <div className="cursor-pointer hidden xs:block" onClick={() => setChatOpen(true)}>
+                 <p className="text-[10px] font-black text-slate-400 leading-none mb-0.5">DÚVIDAS?</p>
+                 <p className="text-xs font-bold text-slate-700">Assistente IA</p>
+              </div>
+           </div>
+           
+           {/* Botão de Venda / Agendamento (Destaque) */}
+           <a 
+              href="https://wa.me/5521972183072?text=Ol%C3%A1%20Dr.%20Jo%C3%A3o!%20Vim%20pelo%20App%20de%20Reabilita%C3%A7%C3%A3o%20e%20gostaria%20de%20saber%20mais%20sobre%20a%20Consultoria%20Premium." 
+              target="_blank" 
+              rel="noreferrer" 
+              className="flex-1 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-lg shadow-slate-300 active:scale-95 transition-all group flex items-center justify-between hover:bg-slate-800"
+            >
+             <div className="flex flex-col">
+               <span className="text-[8px] uppercase tracking-widest text-slate-400 group-hover:text-blue-300 transition-colors">Acelere sua recuperação</span>
+               <span className="text-[11px] font-black flex items-center gap-2">CONSULTORIA PREMIUM</span>
+             </div>
+             <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition-colors">
+               <Star size={16} className="text-yellow-400 fill-yellow-400" />
+             </div>
+           </a>
+        </div>
+      </nav>
+
+      <AIChatAssistant isOpen={chatOpen} onClose={() => setChatOpen(false)} />
+    </div>
+  );
+}
